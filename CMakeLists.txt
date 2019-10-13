@@ -4,11 +4,10 @@ project(Tetris)
 SET(CMAKE_CXX_STANDARD 14)
 SET(CMAKE_INCLUDE_CURRENT_DIR ON)
 SET(CMAKE_AUTOMOC ON)
+SET(Qt5Widgets_DIR /home/alex/Qt/5.12.5/gcc_64/lib/cmake/Qt5Widgets)
 
 find_package(Qt5Widgets CONFIG REQUIRED)
-find_package(Qt5PrintSupport REQUIRED)
 
-SET(Qt5Widget_DIR "C:/Qt/5.12.3/msvc2017_64/lib/cmake")
 
 SET(SRC main.cpp MainWindow.cpp)
 

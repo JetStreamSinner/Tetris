@@ -9,7 +9,7 @@ SET(Qt5Widgets_DIR /home/alex/Qt/5.12.5/gcc_64/lib/cmake/Qt5Widgets)
 find_package(Qt5Widgets CONFIG REQUIRED)
 
 
-SET(SRC main.cpp MainWindow.cpp)
+SET(SRC main.cpp MainWindow.cpp TetrixShape.cpp)
 
 add_executable (Tetris ${SRC})
 target_link_libraries(Tetris Qt5::Widgets)

@@ -1,16 +1,41 @@
 #include <QPainter>
 #include <algorithm>
 #include <QDebug>
+#include <QMediaPlayer>
 #include "MainWindow.h"
 
 MainWindow::MainWindow ( const int min_width, const int min_height, QMainWindow * parent ) : QMainWindow ( parent ),
-    current_shape ( ShapeType::j_type, QPoint ( begining_x, begining_y ) ), engine ( device() )
+    current_shape ( ShapeType::t_type, QPoint ( begining_x, begining_y ) ), engine ( device() )
 {
+    
     setFixedSize ( min_width, min_height );
 
     const auto update_time = 250;
     connect ( &timer, SIGNAL ( timeout() ), this, SLOT ( updateState() ) );
     timer.start ( update_time );
+}
+
+bool MainWindow::collisionCondition()
+{
+
+    for ( auto & vertex : freezing_cells ) {
+        for ( auto & shape_vertex : current_shape.shapePoints() ) {
+            if ( vertex.x() == shape_vertex.x() && vertex.y() == shape_vertex.y() ) {
+                return false;
+            }
+        }
+    }
+    return true;
+}
+
+bool MainWindow::lowBoundCondition()
+{
+    for ( auto& vertex : current_shape.shapePoints() ) {
+        if ( vertex.y() > row_count - 1 ) {
+            return false;
+        }
+    }
+    return true;
 }
 
 bool MainWindow::freezeCondition()
@@ -46,10 +71,9 @@ void MainWindow::removeFilledRows()
         if ( vertex_count == column_count ) {
 
             auto new_end = std::remove_if ( freezing_cells.begin(), freezing_cells.end(), [&] ( QPoint& point ) -> bool {
-                qDebug() << point.y() << "=" << row_index << (point.y() == row_index);
                 return point.y() == row_index;
             } );
-            freezing_cells.erase(new_end, freezing_cells.end());
+            freezing_cells.erase ( new_end, freezing_cells.end() );
 
             std::for_each ( freezing_cells.begin(), freezing_cells.end(), [&] ( QPoint& point ) {
                 if ( point.y() < row_index ) {
@@ -128,18 +152,20 @@ void MainWindow::keyPressEvent ( QKeyEvent * event )
             current_shape.xChanging ( -1 );
         }
         break;
-
     case Qt::Key_Right:
         if ( !rightBoundCondition() ) {
             current_shape.xChanging ( 1 );
         }
         break;
-
-        case Qt::Key_Space:
-            current_shape.reverse();
-            break;
+    case Qt::Key_Space:
+        if ( !leftBoundCondition() || !rightBoundCondition() ) {
+            current_shape.rotate();
+        }
+        if ( !collisionCondition() || !lowBoundCondition() ) {
+            current_shape.reverse_rotate();
+        }
+        break;
     }
-
     update();
 }
 

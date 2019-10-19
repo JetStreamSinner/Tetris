@@ -9,11 +9,12 @@ enum class ShapeType { i_type, j_type, t_type, o_type, l_type, s_type, z_type };
 class TetrixShape
 {
 private:
+    using Vertices = QVector<QPoint>;
 
     static const auto vertices_count = 4;
-    using Vertices = QVector<QPoint>;
     Vertices shape_vertices;
     ShapeType shape_type;
+    int figure_state = 0;
 
     void makeShapeByBase();
 
@@ -23,7 +24,8 @@ private:
 
     bool checkLeftBound ();
     bool checkRightBound ();
-
+    void makeRotate();
+    
 public:
     TetrixShape ( const TetrixShape& rhs ) = default;
     TetrixShape& operator= ( const TetrixShape& rhs ) = default;
@@ -32,7 +34,9 @@ public:
 
 
     void resetShape ( const ShapeType type, const QPoint& base_point );
-    void reverse();
+    void rotate();
+    void reverse_rotate();
+    
 
     void xChanging ( const int val );
     void yChanging ( const int val );

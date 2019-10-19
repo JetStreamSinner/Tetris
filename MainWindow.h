@@ -53,8 +53,10 @@ private:
     void addToFreeze ( const TetrixShape& shape );
     
     bool freezeCondition();
+    bool collisionCondition();
     bool rightBoundCondition();
     bool leftBoundCondition();
+    bool lowBoundCondition();
     void removeFilledRows();
 
 private slots:

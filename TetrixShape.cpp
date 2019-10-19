@@ -1,4 +1,5 @@
 #include <cmath>
+#include <algorithm>
 #include "TetrixShape.h"
 
 TetrixShape::TetrixShape ( const ShapeType type, const QPoint& base_point ) : shape_type ( type )
@@ -94,25 +95,84 @@ void TetrixShape::resetShape ( const ShapeType type, const QPoint& base_point )
 
 void TetrixShape::reverse()
 {
+    using namespace std;
     //
     // x_new = y_old
     // y_new = 1 - (x_old - (me - 2
 
-    const auto x_field_offset = 10;
-    const auto y_field_offset = 20;
+    const auto field_width = 10;
+    const auto field_height = 20;
 
+    auto xComparator = []( const QPoint& point1, const QPoint& point2)
+    {
+        return point1.x() > point2.x();
+    };
+    
+    auto yComparator = []( const QPoint& point1, const QPoint& point2)
+    {
+        return point1.y() > point2.y();
+    };
+    
+    const auto minimum_x = min_element( shape_vertices.begin(), shape_vertices.end(), xComparator )->x();
+    const auto minimum_y = min_element( shape_vertices.begin(), shape_vertices.end(), yComparator )->y();
+        
     for ( auto& vertex : shape_vertices )
     {
         const auto current_x = vertex.x();
         const auto current_y = vertex.y();
+        
+        const auto rotated_x = current_x - minimum_x;
+        const auto rotated_y = current_y - minimum_y;
 
-        const auto x_vertex_offset = x_field_offset - current_x;
-        const auto y_vertex_offset = y_field_offset - current_y;
-
-        vertex.rx() = x_field_offset + current_x * cos ( M_PI_2 ) - current_y  * sin ( M_PI_2 );
-        vertex.ry() = current_x  * sin ( M_PI_2 ) + current_y * cos ( M_PI_2 );
+        vertex.rx() = rotated_x * cos ( M_PI_2 ) - rotated_y  * sin ( M_PI_2 ) + minimum_x;
+        vertex.ry() = rotated_x  * sin ( M_PI_2 ) + rotated_y * cos ( M_PI_2 ) + minimum_y;
+    }
+    
+    
+    if ( !checkLeftBound() )
+    {
+        const auto delta_x = min_element( shape_vertices.begin(), shape_vertices.end(), xComparator )->x();
+        for ( auto& vertex : shape_vertices )
+        {
+            vertex.rx() += abs(delta_x);
+        }
+    }
+    
+    if ( !checkRightBound() )
+    {
+        const auto delta_x = max_element( shape_vertices.begin(), shape_vertices.end(), xComparator )->x() - field_width;
+        for ( auto& vertex : shape_vertices )
+        {
+            vertex.rx() -= abs(delta_x);
+        }
     }
 }
+
+bool TetrixShape::checkLeftBound()
+{
+    for ( auto& vertex : shape_vertices)
+    {
+        if ( vertex.x() < 0 )
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
+bool TetrixShape::checkRightBound()
+{
+    const auto field_width = 10;
+    for ( auto& vertex : shape_vertices)
+    {
+        if ( vertex.x() > field_width)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 
 void TetrixShape::xChanging ( const int val )
 {

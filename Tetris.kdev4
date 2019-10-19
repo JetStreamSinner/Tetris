@@ -1,3 +1,4 @@
 [Project]
-Name=Tetris
+CreatedFrom=CMakeLists.txt
 Manager=KDevCMakeManager
+Name=Tetris

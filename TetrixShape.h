@@ -20,6 +20,10 @@ private:
     TetrixShape() = delete;
     void setShapeVertices ( const QPoint& point1, const QPoint& point2, const QPoint& point3 );
 
+
+    bool checkLeftBound ();
+    bool checkRightBound ();
+
 public:
     TetrixShape ( const TetrixShape& rhs ) = default;
     TetrixShape& operator= ( const TetrixShape& rhs ) = default;

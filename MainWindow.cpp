@@ -1,18 +1,48 @@
 #include <QPainter>
 #include <algorithm>
 #include <QDebug>
-#include <QMediaPlayer>
+#include <QUrl>
+#include <QMessageBox>
 #include "MainWindow.h"
 
 MainWindow::MainWindow ( const int min_width, const int min_height, QMainWindow * parent ) : QMainWindow ( parent ),
     current_shape ( ShapeType::t_type, QPoint ( begining_x, begining_y ) ), engine ( device() )
 {
-    
+    next_shape_type = generateNextShapeType();
     setFixedSize ( min_width, min_height );
+    initMediaPlayer();
+    initTimer();
+    initWindow();
+}
 
-    const auto update_time = 250;
+void MainWindow::initMediaPlayer()
+{
+    player = new QMediaPlayer;
+    player->setMedia ( QUrl::fromLocalFile ( tetrisMainThemeSoundPath() ) );
+    player->setVolume ( 50 );
+    player->play();
+    connect ( player, SIGNAL ( mediaStatusChanged ( QMediaPlayer::MediaStatus ) ), this, SLOT ( updateMedia() ) );
+}
+
+void MainWindow::initTimer()
+{
+    const auto update_time = game_speed;
     connect ( &timer, SIGNAL ( timeout() ), this, SLOT ( updateState() ) );
     timer.start ( update_time );
+}
+
+void MainWindow::initWindow()
+{
+    QPixmap background_pixmap ( applicationBackgroundImagePath() );
+    background_pixmap = background_pixmap.scaled ( size(), Qt::IgnoreAspectRatio );
+    QPalette pal = palette();
+    pal.setBrush ( QPalette::Background, background_pixmap );
+    setPalette ( pal );
+}
+
+void MainWindow::updateMedia()
+{
+    player->play();
 }
 
 bool MainWindow::collisionCondition()
@@ -27,6 +57,19 @@ bool MainWindow::collisionCondition()
     }
     return true;
 }
+
+bool MainWindow::checkLossCondition()
+{
+    for ( auto& vertex : freezing_cells )
+    {
+        if (vertex.y() == begining_y)
+        {
+            return false;
+        }
+    }
+    return true;
+}
+
 
 bool MainWindow::lowBoundCondition()
 {
@@ -80,9 +123,50 @@ void MainWindow::removeFilledRows()
                     point.ry()++;
                 }
             } );
+            
+            // Increment score count
+            score_count += 10;
+            
+            // Speed up game
+            game_speed -= 5;
+            timer.setInterval(game_speed);
+            
         }
     }
 
+}
+
+void MainWindow::resetGameField()
+{
+    // Clear freezing cells
+    freezing_cells.clear();
+    
+    // Reset shape
+    auto shape_type = generateNextShapeType();
+    next_shape_type = generateNextShapeType();
+    current_shape.resetShape( shape_type, QPoint( begining_x, begining_y ));
+    
+    // Reset timer
+    game_speed = 300;
+    timer.setInterval(game_speed);
+    
+    // Reset scores
+    score_count = 0;
+    
+    // Reset player
+    player->setPosition(0);
+    player->play();
+}
+
+
+ShapeType MainWindow::generateNextShapeType()
+{
+    // And reset by input new random shape type and default coordinates
+    const auto low_bound = 0;
+    const auto up_bound = 6;
+    std::uniform_int_distribution<int> distribution ( low_bound, up_bound );
+    auto next_type = static_cast<ShapeType> ( distribution ( engine ) );
+    return next_type;
 }
 
 void MainWindow::updateState()
@@ -91,14 +175,18 @@ void MainWindow::updateState()
     if ( freezeCondition() ) {
         // Freeze her
         addToFreeze ( current_shape );
-
-        // And reset by input new random shape type and default coordinates
-        const auto low_bound = 0;
-        const auto up_bound = 6;
-        std::uniform_int_distribution<int> distribution ( low_bound, up_bound );
-        const auto next_shape = static_cast<ShapeType> ( distribution ( engine ) );
+        
+        if ( !checkLossCondition() )
+        {
+            QMessageBox::information(this, "You lost", "Press any key to restart");
+            resetGameField();
+            return;
+        }
+        
         const QPoint base_point ( begining_x, begining_y );
-        current_shape.resetShape ( next_shape, base_point );
+        
+        current_shape.resetShape ( next_shape_type, base_point );
+        next_shape_type = generateNextShapeType();
     }
 
     current_shape.yChanging ( 1 );
@@ -108,20 +196,16 @@ void MainWindow::updateState()
 
 void MainWindow::drawFreezingCells ( QPainter& painter )
 {
-    painter.save();
-    const QColor painter_color ( Qt::red );
-    const QBrush painter_brush ( painter_color );
-    painter.setBrush ( painter_brush );
+    QImage tetris_block_image ( tetrisBlockImage() );
 
     for ( auto& vertex : freezing_cells ) {
         const auto x = vertex.x() * side_size + delta_x;
         const auto y = vertex.y() * side_size + delta_y;
 
         const QRect drawing_rect ( x, y, side_size, side_size );
-        painter.drawRect ( drawing_rect );
+        painter.drawImage ( drawing_rect, tetris_block_image );
     }
 
-    painter.restore();
 }
 
 
@@ -141,6 +225,7 @@ void MainWindow::paintEvent ( QPaintEvent * event )
     drawFieldGrid ( painter );
     drawShape ( painter, current_shape );
     drawFreezingCells ( painter );
+    drawInfo ( painter );
 }
 
 void MainWindow::keyPressEvent ( QKeyEvent * event )
@@ -207,25 +292,53 @@ bool MainWindow::rightBoundCondition()
 
 void MainWindow::drawInfo ( QPainter& painter )
 {
+    const auto width_offset = delta_x + side_size * column_count;
+    const auto height_offset = delta_y + side_size * row_count;
 
+
+    const QColor painter_color ( Qt::blue );
+    const QBrush painter_brush ( painter_color );
+    painter.setBrush ( painter_brush );
+
+    const auto font_size = 13;
+    QFont font = painter.font();
+    font.setPointSize ( font_size );
+
+    const auto information_tables_offset = 50;
+
+    const auto score_table_width = 200;
+    const auto score_table_height = 50;
+    QRect score_panel ( width_offset + information_tables_offset, delta_y, score_table_width, score_table_height );
+    painter.drawText ( score_panel, QString("Score count: %0 ").arg(score_count) );
+
+    const auto drawing_x = width_offset + information_tables_offset + 50;
+    const auto drawing_y = delta_y + score_table_height + 50;
+
+    painter.translate ( drawing_x, drawing_y );
+
+    auto next_shape = TetrixShape(next_shape_type, QPoint (0, 0));
+
+    for ( auto& vertex : next_shape.shapePoints() ) {
+        QRect drawing_rect ( vertex.x() * side_size, vertex.y() * side_size, side_size, side_size );
+        painter.drawImage ( drawing_rect, tetrisBlockImage() );
+    }
+
+    painter.resetTransform();
 }
 
 void MainWindow::drawShape ( QPainter& painter, const TetrixShape& shape )
 {
-    painter.save();
-    const QColor painter_color ( Qt::red );
-    const QBrush painter_brush ( painter_color );
-    painter.setBrush ( painter_brush );
 
+
+    QImage tetris_block_image ( tetrisBlockImage() );
     for ( auto& vertex : shape.shapePoints() ) {
         const auto x = vertex.x() * side_size + delta_x;
         const auto y = vertex.y() * side_size + delta_y;
 
         const QRect drawing_rect ( x, y, side_size, side_size );
-        painter.drawRect ( drawing_rect );
+        painter.drawImage ( drawing_rect, tetris_block_image );
     }
 
-    painter.restore();
 }
 
 
@@ -264,6 +377,9 @@ void MainWindow::drawField ( QPainter& painter )
     painter.drawLine ( up_left,    down_left );
     painter.drawLine ( down_left,  down_right );
     painter.drawLine ( down_right, up_right );
+
+    QRect drawing_rect ( up_left, down_right );
+    painter.drawImage ( drawing_rect, tetrisBackgroundImage() );
 }
 
 
